@@ -34,6 +34,13 @@ directory '/opt/minecraft' do
   action :create
 end
 
+directory '/opt/minecraft/backup' do
+  owner 'minecraft'
+  group 'minecraft'
+  mode 0755
+  action :create
+end
+
 file '/opt/minecraft/eula.txt' do
   content "eula=true"
   owner 'minecraft'
