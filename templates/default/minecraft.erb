@@ -1,6 +1,6 @@
 #!/bin/bash
 # /etc/init.d/minecraft
-# version 0.4.0 2015-04-20 (YYYY-MM-DD)
+# version 0.5.0 2016-09-21 (YYYY-MM-DD)
 #
 ### BEGIN INIT INFO
 # Provides:   minecraft
@@ -37,180 +37,142 @@ INVOCATION="java -d64 -server \
 ME=`whoami`
 
 as_user() {
-if [ "$ME" = "$USERNAME" ] ; then
-bash -c "$1"
-else
-su - "$USERNAME" -c "$1"
-fi
+    if [ "$ME" = "$USERNAME" ] ; then
+        bash -c "$1"
+    else
+        su - "$USERNAME" -c "$1"
+    fi
 }
 
 mc_start() {
-if pgrep -u $USERNAME -f $SERVICE > /dev/null
-then
-echo "$SERVICE is already running!"
-else
-echo "Starting $SERVICE..."
-cd $MCPATH
-as_user "cd $MCPATH && screen -h $HISTORY -dmS minecraft $INVOCATION"
-sleep 7
-if pgrep -u $USERNAME -f $SERVICE > /dev/null
-then
-echo "$SERVICE is now running."
-else
-echo "Error! Could not start $SERVICE!"
-fi
-fi
+    if pgrep -u $USERNAME -f $SERVICE > /dev/null
+    then
+        echo "$SERVICE は既に起動しています"
+    else
+        echo "$SERVICE を起動しています"
+        cd $MCPATH
+        as_user "cd $MCPATH && screen -h $HISTORY -dmS minecraft $INVOCATION"
+        sleep 7
+        if pgrep -u $USERNAME -f $SERVICE > /dev/null
+        then
+            echo "$SERVICE が起動しました"
+        else
+            echo "$SERVICE の起動に失敗しました"
+        fi
+    fi
 }
 
 mc_saveoff() {
-if pgrep -u $USERNAME -f $SERVICE > /dev/null
-then
-echo "$SERVICE is running... suspending saves"
-as_user "screen -p 0 -S minecraft -X eval 'stuff \"say SERVER BACKUP STARTING. Server going readonly...\"\015'"
-as_user "screen -p 0 -S minecraft -X eval 'stuff \"save-off\"\015'"
-as_user "screen -p 0 -S minecraft -X eval 'stuff \"save-all\"\015'"
-sync
-sleep 10
-else
-echo "$SERVICE is not running. Not suspending saves."
-fi
+    if pgrep -u $USERNAME -f $SERVICE > /dev/null
+    then
+        echo "$SERVICE が起動中です。オートセーブを一時無効化します"
+        as_user "screen -p 0 -S minecraft -X eval 'stuff \"say バックアップを実施します。\"\015'"
+        as_user "screen -p 0 -S minecraft -X eval 'stuff \"save-off\"\015'"
+        as_user "screen -p 0 -S minecraft -X eval 'stuff \"save-all\"\015'"
+        sync
+        sleep 10
+     else
+        echo "$SERVICE は停止中です"
+    fi
 }
 
 mc_saveon() {
-if pgrep -u $USERNAME -f $SERVICE > /dev/null
-then
-echo "$SERVICE is running... re-enabling saves"
-as_user "screen -p 0 -S minecraft -X eval 'stuff \"save-on\"\015'"
-as_user "screen -p 0 -S minecraft -X eval 'stuff \"say SERVER BACKUP ENDED. Server going read-write...\"\015'"
-else
-echo "$SERVICE is not running. Not resuming saves."
-fi
+    if pgrep -u $USERNAME -f $SERVICE > /dev/null
+    then
+        echo "$SERVICE が起動中です。オートセーブ有効化します"
+        as_user "screen -p 0 -S minecraft -X eval 'stuff \"save-on\"\015'"
+        as_user "screen -p 0 -S minecraft -X eval 'stuff \"say バックアップ完了。オートセーブを有効にします。\"\015'"
+    else
+        echo "$SERVICE は停止中です"
+    fi
 }
 
 mc_stop() {
-if pgrep -u $USERNAME -f $SERVICE > /dev/null
-then
-echo "Stopping $SERVICE"
-as_user "screen -p 0 -S minecraft -X eval 'stuff \"say SERVER SHUTTING DOWN IN 10 SECONDS. Saving map...\"\015'"
-as_user "screen -p 0 -S minecraft -X eval 'stuff \"save-all\"\015'"
-sleep 10
-as_user "screen -p 0 -S minecraft -X eval 'stuff \"stop\"\015'"
-sleep 15
-else
-echo "$SERVICE was not running."
-fi
-if pgrep -u $USERNAME -f $SERVICE > /dev/null
-then
-echo "Error! $SERVICE could not be stopped."
-else
-echo "$SERVICE is stopped."
-fi
-}
-
-mc_update() {
-if pgrep -u $USERNAME -f $SERVICE > /dev/null
-then
-echo "$SERVICE is running! Will not start update."
-else
-as_user "cd $MCPATH && wget -q -O $MCPATH/versions http://s3.amazonaws.com/Minecraft.Download/versions/versions.json"
-snap=`awk -v linenum=3 'NR == linenum {print; exit}' "$MCPATH/versions"`
-snapVersion=`echo $snap | awk -F'\"' '{print $4}'`
-re=`awk -v linenum=4 'NR == linenum {print; exit}' "$MCPATH/versions"`
-reVersion=`echo $re | awk -F'\"' '{print $4}'`
-as_user "rm $MCPATH/versions"
-if [ "$1" == "snapshot" ]; then
-MC_SERVER_URL=http://s3.amazonaws.com/Minecraft.Download/versions/$snapVersion/minecraft_server.$snapVersion.jar
-else
-MC_SERVER_URL=http://s3.amazonaws.com/Minecraft.Download/versions/$reVersion/minecraft_server.$reVersion.jar
-fi
-as_user "cd $MCPATH && wget -q -O $MCPATH/minecraft_server.jar.update $MC_SERVER_URL"
-if [ -f $MCPATH/minecraft_server.jar.update ]
-then
-if `diff $MCPATH/$SERVICE $MCPATH/minecraft_server.jar.update >/dev/null`
-then
-echo "You are already running the latest version of $SERVICE."
-else
-as_user "mv $MCPATH/minecraft_server.jar.update $MCPATH/$SERVICE"
-echo "Minecraft successfully updated."
-fi
-else
-echo "Minecraft update could not be downloaded."
-fi
-fi
+    if pgrep -u $USERNAME -f $SERVICE > /dev/null
+    then
+        echo "$SERVICE を停止します"
+        as_user "screen -p 0 -S minecraft -X eval 'stuff \"say サーバーを停止します。全体セーブ中。。。\"\015'"
+        as_user "screen -p 0 -S minecraft -X eval 'stuff \"save-all\"\015'"
+        sleep 10
+        as_user "screen -p 0 -S minecraft -X eval 'stuff \"stop\"\015'"
+        sleep 15
+    else
+        echo "$SERVICE は停止中です"
+    fi
+    if pgrep -u $USERNAME -f $SERVICE > /dev/null
+    then
+        echo "$SERVICE の停止操作に失敗しました(時間がかかっているだけかもしれません)"
+    else
+        echo "$SERVICE が停止しました"
+    fi
 }
 
 mc_backup() {
-mc_saveoff
-NOW=`date "+%Y-%m-%d_%Hh%M"`
-BACKUP_FILE="$BACKUPPATH/${WORLD}_${NOW}.tar"
-echo "Backing up minecraft world..."
-#as_user "cd $MCPATH && cp -r $WORLD $BACKUPPATH/${WORLD}_`date "+%Y.%m.%d_%H.%M"`"
-as_user "tar -C \"$MCPATH\" -cf \"$BACKUP_FILE\" $WORLD"
-as_user "tar -C \"$MCPATH\" -rf \"$BACKUP_FILE\" $WORLD_nether"
-as_user "tar -C \"$MCPATH\" -rf \"$BACKUP_FILE\" $WORLD_the_end"
-echo "Backing up $SERVICE"
-as_user "tar -C \"$MCPATH\" -rf \"$BACKUP_FILE\" $SERVICE"    #as_user "cp \"$MCPATH/$SERVICE\" \"$BACKUPPATH/minecraft_server_${NOW}.jar\""
-
-mc_saveon
-
-echo "Compressing backup..."
-as_user "gzip -f \"$BACKUP_FILE\""
-echo "Done."
+    mc_saveoff
+    NOW=`date "+%Y-%m-%d_%Hh%M"`
+    BACKUP_FILE="$BACKUPPATH/${WORLD}_${NOW}.tar"
+    echo "ワールドデータのバックアップ中です"
+    #as_user "cd $MCPATH && cp -r $WORLD $BACKUPPATH/${WORLD}_`date "+%Y.%m.%d_%H.%M"`"
+    as_user "tar -C \"$MCPATH\" -cf \"$BACKUP_FILE\" $WORLD"
+    as_user "tar -C \"$MCPATH\" -rf \"$BACKUP_FILE\" $WORLD_nether"
+    as_user "tar -C \"$MCPATH\" -rf \"$BACKUP_FILE\" $WORLD_the_end"
+    echo "バイナリのバックアップ中です"
+    as_user "tar -C \"$MCPATH\" -rf \"$BACKUP_FILE\" $SERVICE"
+    #as_user "cp \"$MCPATH/$SERVICE\" \"$BACKUPPATH/minecraft_server_${NOW}.jar\""
+    mc_saveon
+    echo "圧縮中"
+    as_user "gzip -f \"$BACKUP_FILE\""
+    as_user "chmod 777 \"$BACKUP_FILE\""
+    echo "バックアップが終了しました"
 }
 
 mc_command() {
-command="$1";
-if pgrep -u $USERNAME -f $SERVICE > /dev/null
-then
-pre_log_len=`wc -l "$MCPATH/logs/latest.log" | awk '{print $1}'`
-echo "$SERVICE is running... executing command"
-as_user "screen -p 0 -S minecraft -X eval 'stuff \"$command\"\015'"
-sleep .1 # assumes that the command will run and print to the log file in less than .1 seconds
-# print output
-tail -n $[`wc -l "$MCPATH/logs/latest.log" | awk '{print $1}'`-$pre_log_len] "$MCPATH/logs/latest.log"
-fi
+    command="$1";
+    if pgrep -u $USERNAME -f $SERVICE > /dev/null
+    then
+        pre_log_len=`wc -l "$MCPATH/logs/latest.log" | awk '{print $1}'`
+        echo "$SERVICE サーバーは起動中です。コマンドを実行します"
+        as_user "screen -p 0 -S minecraft -X eval 'stuff \"$command\"\015'"
+        # かなり雑。一瞬スリープして latest.log の末尾見ているだけなので、場合によっては流れてしまうかも
+        sleep .1
+        tail -n $[`wc -l "$MCPATH/logs/latest.log" | awk '{print $1}'`-$pre_log_len] "$MCPATH/logs/latest.log"
+    fi
 }
 
 #Start-Stop here
 case "$1" in
 start)
-mc_start
+    mc_start
 ;;
 stop)
-mc_stop
+    mc_stop
 ;;
 restart)
-mc_stop
-mc_start
-;;
-update)
-mc_stop
-mc_backup
-mc_update $2
-mc_start
+    mc_stop
+    mc_start
 ;;
 backup)
-mc_backup
+    mc_backup
 ;;
 status)
-if pgrep -u $USERNAME -f $SERVICE > /dev/null
-then
-echo "$SERVICE is running."
-else
-echo "$SERVICE is not running."
-fi
+    if pgrep -u $USERNAME -f $SERVICE > /dev/null
+    then
+        echo "$SERVICE は起動中です"
+    else
+        echo "$SERVICE は停止中です"
+    fi
 ;;
 command)
-if [ $# -gt 1 ]; then
-shift
-mc_command "$*"
-else
-echo "Must specify server command (try 'help'?)"
-fi
+    if [ $# -gt 1 ]; then
+        shift
+        mc_command "$*"
+    else
+        echo "Must specify server command (try 'help'?)"
+    fi
 ;;
 *)
-echo "Usage: $0 {start|stop|update|backup|status|restart|command \"server command\"}"
-exit 1
+    echo "Usage: $0 {start|stop|update|backup|status|restart|command \"server command\"}"
+    exit 1
 ;;
 esac
 
